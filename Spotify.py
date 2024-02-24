@@ -7,11 +7,12 @@ from URLEncoding import urlencoding
 
 class Spotify:
     def __init__(self, BASE_64_STRING, CLIENT_ID, REDIRECT_URI, SCOPES, JSON_FILE_FOLDER=""):
-        self.BASE_64_STRING = BASE_64_STRING
-        self.CLIENT_ID = CLIENT_ID
-        self.REDIRECT_URI = REDIRECT_URI
-        self.JSON_FILE_FOLDER = JSON_FILE_FOLDER
-        self.SCOPES = SCOPES
+        self.BASE_64_STRING = BASE_64_STRING  #Base 64 String of clientid:clientsecret
+        self.CLIENT_ID = CLIENT_ID  #Client ID from application on Spotify developer dashboard
+        self.REDIRECT_URI = REDIRECT_URI  #Spotify redirect_uri - This must be also defined in the spotify developer console
+        self.JSON_FILE_FOLDER = JSON_FILE_FOLDER #Subfolder where JSON files are stored
+        self.SCOPES = SCOPES # Scopes required for the spotify request, the ones requried here are - "user-read-playback-state user-read-currently-playing"
+        
         self.accessToken = ""
         data = self.__RetrieveCredFile()
         try:
@@ -30,10 +31,12 @@ class Spotify:
         else:
             self.__RefreshAccessToken()
 
+    # Returns a URL which the user must go to to get their initial Authorization Token.
     def GetKeyUrl(self):
-        return f"https://accounts.spotify.com/authorize?client_id={self.CLIENT_ID}&scope={self.SCOPES}&response_type=code&redirect_uri={self.REDIRECT_URI}"
+        return f"https://accounts.spotify.com/authorize?client_id={self.CLIENT_ID}&scope={self.SCOPES}&response_type=code&redirect_uri={self.REDIRECT_URI}" 
 
-    def __GetAuthorizationTokens(self, token):
+    # Turns an Authorization token into a new Auth Token and Refresh Token.
+    def __GetAuthorizationTokens(self, token): 
         authHeader = {}
         authHeader["Authorization"] = "Basic " + self.BASE_64_STRING
 
@@ -59,6 +62,7 @@ class Spotify:
         except KeyError:
             print(respose)
 
+    # Refreshes an Access token when needed.
     def __RefreshAccessToken(self):
         url = "https://accounts.spotify.com/api/token"
         form = {
@@ -82,43 +86,31 @@ class Spotify:
             self.refreshToken = response["refresh_token"]
         except KeyError:
             pass
-    
+
+    # Get Playback Data
     def __RequestRawPlayback(self):
-        return requests.get('https://api.spotify.com/v1/me/player',headers={"Authorization": f"Bearer {self.accessToken}"})
+        response = requests.get('https://api.spotify.com/v1/me/player',headers={"Authorization": f"Bearer {self.accessToken}"})
+        try:
+            jsonResponse = req.json()
+            return jsonResponse
+        except:
+            self.__RefreshAccessToken()
+            self.__RequestRawPlayback()
 
-    def __RetrieveCredFile(self):
-        with open(f"{self.JSON_FILE_FOLDER}credentials.json","r") as f:
-            data = json.load(f)
-        return data
-    
-    def __SaveCredFile(self, data):
-        with open(f"{self.JSON_FILE_FOLDER}credentials.json", "w") as f:
-            json.dump(data, f)
-
+    # Return Playback Data in a readable format to user.
     def RequestPlayback(self):
-        req = self.__RequestRawPlayback()
-        try:
-            if req.status_code == 401:
-                print("Token expired")
-                return False
-        except AttributeError:
-            pass
-
-        try:
-            resp_json = req.json()
-        except ValueError:
-            print(f"Value Error.\n Request Response: {req}")
-            
-        trackID = resp_json['item']['id']
-        trackName = resp_json['item']['name']
+        jsonResponse = self.__RequestRawPlayback()
+        
+        trackID = jsonResponse['item']['id']
+        trackName = jsonResponse['item']['name']
         names = []
-        for i in range(0, len(resp_json['item']['artists'])):
-            names.append(resp_json['item']['artists'][i]["name"])
+        for i in range(0, len(jsonResponse['item']['artists'])):
+            names.append(jsonResponse['item']['artists'][i]["name"])
         trackArtists = ", ".join(names)
-        link = resp_json['item']['external_urls']['spotify']
-        lqAlbumArt = resp_json["item"]["album"]["images"][2]["url"]
-        hqAlbumArt = resp_json["item"]["album"]["images"][0]["url"]
-        playing = resp_json["is_playing"]
+        link = jsonResponse['item']['external_urls']['spotify']
+        lqAlbumArt = jsonResponse["item"]["album"]["images"][2]["url"]
+        hqAlbumArt = jsonResponse["item"]["album"]["images"][0]["url"]
+        playing = jsonResponse["is_playing"]
 
         trackData = {
             "id":trackID,
@@ -131,3 +123,14 @@ class Spotify:
         }
 
         return trackData
+
+    # Read Credentials File
+    def __RetrieveCredFile(self):
+        with open(f"{self.JSON_FILE_FOLDER}credentials.json","r") as f:
+            data = json.load(f)
+        return data
+
+    # Save Credentials File
+    def __SaveCredFile(self, data):
+        with open(f"{self.JSON_FILE_FOLDER}credentials.json", "w") as f:
+            json.dump(data, f)
