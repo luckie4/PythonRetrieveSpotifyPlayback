@@ -91,7 +91,7 @@ class Spotify:
     def __RequestRawPlayback(self):
         response = requests.get('https://api.spotify.com/v1/me/player',headers={"Authorization": f"Bearer {self.accessToken}"})
         try:
-            jsonResponse = req.json()
+            jsonResponse = response.json()
             return jsonResponse
         except:
             self.__RefreshAccessToken()
