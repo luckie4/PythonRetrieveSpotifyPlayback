@@ -124,22 +124,22 @@ class Spotify:
         
     def requestFormattedPlayback(self) -> dict:
         """Retrieves the users currently playing song, formats it into the necessary data and outputs it as a dictionary."""
-        jsonResponse, statusCode = self.requestPlayback()
+        data, statusCode = self.requestPlayback()
         
         # If there is no content, there is nothing to format!
         if statusCode == 204:
-            return jsonResponse, statusCode
+            return data, statusCode
                 
-        trackID = jsonResponse['item']['id']
-        trackName = jsonResponse['item']['name']
+        trackID = data['item']['id']
+        trackName = data['item']['name']
         names = []
-        for i in range(0, len(jsonResponse['item']['artists'])):
-            names.append(jsonResponse['item']['artists'][i]["name"])
+        for i in range(0, len(data['item']['artists'])):
+            names.append(data['item']['artists'][i]["name"])
         trackArtists = ", ".join(names)
-        link = jsonResponse['item']['external_urls']['spotify']
-        lqAlbumArt = jsonResponse["item"]["album"]["images"][2]["url"]
-        hqAlbumArt = jsonResponse["item"]["album"]["images"][0]["url"]
-        playing = jsonResponse["is_playing"]
+        link = data['item']['external_urls']['spotify']
+        lqAlbumArt = data["item"]["album"]["images"][2]["url"]
+        hqAlbumArt = data["item"]["album"]["images"][0]["url"]
+        playing = data["is_playing"]
 
         trackData = {
             "id":trackID,
