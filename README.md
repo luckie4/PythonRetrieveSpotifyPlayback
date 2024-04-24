@@ -2,7 +2,9 @@
 An implementation of the Spotify API using Python.
 _This does not utilise the spotipy library, instead it sends HTTP requests to the Spotify API directly._
 
-This file is able to retrieve all current playing track data from a users spotify account.
+NEW ADDITION - uSpotify.py --> Spotify integration for Microcontrollers with Web connectivity (e.g. Pi Pico W) running MicroPython.
+
+Object is capable of reading users current queue, adding, and skipping songs in the queue, and reading playlist data.
 For more information:
   https://developer.spotify.com/documentation/web-api
 
