@@ -106,7 +106,7 @@ class uSpotify:
         return data
     
     def __saveCredFile(self, data) -> None:
-        """Saves refresh token from Credentials file."""
+        """Saves refresh token to the Credentials file."""
         with open(f"credentials.json", "w") as f:
             json.dump(data, f)
 
