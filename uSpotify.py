@@ -95,9 +95,33 @@ class uSpotify:
         except KeyError:
             pass
     
+    def get(self, url, headers) -> dict:
+        """Handles token expiry and no content automatically when making an HTTP GET request."""
+        response = requests.get(url, headers=headers)
+        if response.status_code == 401:
+            print("Token Expired")
+            self.__refreshAccessToken()
+            return self.requestPlayback(), response.status_code
+        elif response.status_code == 204:
+            return json.dumps({"Playback":"No Content"}), response.status_code
+        elif response.status_code == 200:
+            return response.json(), response.status_code
+        
+    def post(self, url, headers, data="") -> dict:
+        """Handles token expiry and no content automatically when making an HTTP POST request."""
+        response = requests.post(url, headers=headers, data=data)
+        if response.status_code == 401:
+            print("Token Expired")
+            self.__refreshAccessToken()
+            return self.requestPlayback(), response.status_code
+        elif response.status_code == 204:
+            return json.dumps({"Playback":"No Content"}), response.status_code
+        elif response.status_code == 200:
+            return response.json(), response.status_code
+    
     def requestPlayback(self) -> json:
         """Returns the users currently playing song as a json object."""
-        return requests.get('https://api.spotify.com/v1/me/player',headers={"Authorization": f"Bearer {self.accessToken}"})
+        return self.get('https://api.spotify.com/v1/me/player',headers={"Authorization": f"Bearer {self.accessToken}"})
 
     def __retrieveCredFile(self) -> dict:
         """Retrieves refresh token from Credentials file."""
@@ -112,33 +136,23 @@ class uSpotify:
 
     def requestFormattedPlayback(self) -> dict:
         """Retrieves the users currently playing song, formats it into the necessary data and outputs it as a dictionary."""
-        req = self.requestPlayback()
-        try:
-            # If token has expired, refresh it.
-            if req.status_code == 401:
-                print("Token expired")
-                self.__refreshAccessToken()
-                req = self.requestPlayback()
-        except AttributeError as e:
-            print(e)
-
-        # Program may not always be able to complete, as when no song is being played, the API does not return JSON, instead returns nothing, and a code of "402: No Content".
-        try:
-            resp_json = req.json()
-        except ValueError:
-            return "", req.status_code
+        data, statusCode = self.requestPlayback()
+        
+        # If there is no content, there is nothing to format!
+        if statusCode == 204:
+            return data, statusCode
         
         # FORMATTING
-        trackID = resp_json['item']['id']
-        trackName = resp_json['item']['name']
+        trackID = data['item']['id']
+        trackName = data['item']['name']
         names = []
-        for i in range(0, len(resp_json['item']['artists'])):
-            names.append(resp_json['item']['artists'][i]["name"])
+        for i in range(0, len(data['item']['artists'])):
+            names.append(data['item']['artists'][i]["name"])
         trackArtists = ", ".join(names)
-        link = resp_json['item']['external_urls']['spotify']
-        lqAlbumArt = resp_json["item"]["album"]["images"][2]["url"]
-        hqAlbumArt = resp_json["item"]["album"]["images"][0]["url"]
-        playing = resp_json["is_playing"]
+        link = data['item']['external_urls']['spotify']
+        lqAlbumArt = data["item"]["album"]["images"][2]["url"]
+        hqAlbumArt = data["item"]["album"]["images"][0]["url"]
+        playing = data["is_playing"]
 
         trackData = {
             "id":trackID,
@@ -150,14 +164,14 @@ class uSpotify:
             "playing":playing
         }
 
-        return trackData, req.status_code
+        return trackData, statusCode
 
     def search(self, query, searchType) -> dict:
         """Searches for a song on the Spoify Database"""
         url = "https://api.spotify.com/v1/search"
         header = {"Authorization": f"Bearer {self.accessToken}"}
         searchQuery = f"?q={query}&type={searchType}"
-        return requests.get(f"{url}{searchQuery}", headers=header).json()
+        return self.get(f"{url}{searchQuery}", headers=header).json()
     
     def searchAndQueue(self, query) -> json:
         """Searches and Queues a song on the users spotify account."""
@@ -177,12 +191,12 @@ class uSpotify:
         url_bw = "https://api.spotify.com/v1/me/player/previous"
         header = {"Authorization": f"Bearer {self.accessToken}"}
         if forward:
-            return requests.post(url_fw, headers=header)
+            return self.post(url_fw, headers=header)
         else:
-            return requests.post(url_bw, headers=header)
+            return self.post(url_bw, headers=header)
     
     def getPlaylistItems(self, playlistID) -> dict:
         """Gets the whole contents of a users playlist."""
         url = f"https://api.spotify.com/v1/playlists/{playlistID}/tracks"
         header = {"Authorization": f"Bearer {self.accessToken}"}
-        return requests.get(url, headers=header).json()
+        return self.get(url, headers=header).json()
