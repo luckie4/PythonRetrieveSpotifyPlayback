@@ -94,8 +94,9 @@ class Spotify:
         except KeyError:
             pass
     
-    def get(self, url, headers) -> dict:
+    def get(self, url) -> dict:
         """Handles token expiry and no content automatically when making an HTTP GET request."""
+        headers = {"Authorization": f"Bearer {self.accessToken}"}
         response = requests.get(url, headers=headers)
         if response.status_code == 401:
             print("Token Expired")
@@ -106,8 +107,9 @@ class Spotify:
         elif response.status_code == 200:
             return response.json(), response.status_code
         
-    def post(self, url, headers, data="") -> dict:
+    def post(self, url, data="") -> dict:
         """Handles token expiry and no content automatically when making an HTTP POST request."""
+        headers = {"Authorization": f"Bearer {self.accessToken}"}
         response = requests.post(url, headers=headers, data=data)
         if response.status_code == 401:
             print("Token Expired")
@@ -120,7 +122,7 @@ class Spotify:
         
     def requestPlayback(self) -> json:
         """Returns the users currently playing song as a json object."""
-        return self.get('https://api.spotify.com/v1/me/player',headers={"Authorization": f"Bearer {self.accessToken}"})
+        return self.get('https://api.spotify.com/v1/me/player')
         
     def requestFormattedPlayback(self) -> dict:
         """Retrieves the users currently playing song, formats it into the necessary data and outputs it as a dictionary."""
@@ -129,17 +131,51 @@ class Spotify:
         # If there is no content, there is nothing to format!
         if statusCode == 204:
             return data, statusCode
-                
-        trackID = data['item']['id']
-        trackName = data['item']['name']
-        names = []
-        for i in range(0, len(data['item']['artists'])):
-            names.append(data['item']['artists'][i]["name"])
-        trackArtists = ", ".join(names)
-        link = data['item']['external_urls']['spotify']
-        lqAlbumArt = data["item"]["album"]["images"][2]["url"]
-        hqAlbumArt = data["item"]["album"]["images"][0]["url"]
-        playing = data["is_playing"]
+        
+        try:
+            trackID = data['item']['id']
+        except KeyError:
+            trackID = None
+        try:
+            trackName = data['item']['name']
+        except KeyError:
+            trackName = None
+        try:
+            names = []
+            for i in range(0, len(data['item']['artists'])):
+                names.append(data['item']['artists'][i]["name"])
+            trackArtists = ", ".join(names)
+        except KeyError:
+            trackArtists = None
+        try:
+            link = data['item']['external_urls']['spotify']
+        except:
+            link = None
+        try:
+            try:
+                lqAlbumArt = data["item"]["album"]["images"][2]["url"]
+            except KeyError:
+                lqAlbumArt = None
+            try:
+                hqAlbumArt = data["item"]["album"]["images"][0]["url"]
+            except KeyError:
+                hqAlbumArt = None
+        except IndexError:
+            lqAlbumArt = None
+            hqAlbumArt = None
+            
+        if lqAlbumArt == None:
+            try:
+                lqAlbumArt, statusCode = self.getPlaylistImage(str(data["context"]["external_urls"]["spotify"]).replace("https://open.spotify.com/playlist/","",1))
+                lqAlbumArt = lqAlbumArt[0]["url"]
+            except KeyError:
+                pass
+            except IndexError:
+                pass
+        try:
+            playing = data["is_playing"]
+        except KeyError:
+            playing = False
 
         trackData = {
             "id":trackID,
@@ -171,9 +207,8 @@ class Spotify:
         * "album"
         * "artist" """
         url = "https://api.spotify.com/v1/search"
-        header = {"Authorization": f"Bearer {self.accessToken}"}
         searchQuery = f"?q={query}&type={searchType}"
-        return self.get(f"{url}{searchQuery}", headers=header)
+        return self.get(f"{url}{searchQuery}")
     
     def searchAndQueue(self, query) -> json:
         """Searches and Queues a song on the users spotify account."""
@@ -184,22 +219,24 @@ class Spotify:
     def addToQueue(self, uri) -> json:
         """Adds a track to queue, using the tracks unique identifier."""
         url = "https://api.spotify.com/v1/me/player/queue"
-        header = {"Authorization": f"Bearer {self.accessToken}"}
         track = f"?uri={uri}"
-        return self.post(f"{url}{track}", headers=header)
+        return self.post(f"{url}{track}")
     
     def skip(self, forward=True) -> json:
         """Skips the currently playing song in the users queue."""
         url_fw = "https://api.spotify.com/v1/me/player/next"
         url_bw = "https://api.spotify.com/v1/me/player/previous"
-        header = {"Authorization": f"Bearer {self.accessToken}"}
         if forward:
-            return self.post(url_fw, headers=header)
+            return self.post(url_fw)
         else:
-            return self.post(url_bw, headers=header)
+            return self.post(url_bw)
     
     def getPlaylistItems(self, playlistID) -> dict:
         """Gets the whole contents of a users playlist."""
         url = f"https://api.spotify.com/v1/playlists/{playlistID}/tracks"
-        header = {"Authorization": f"Bearer {self.accessToken}"}
-        return self.get(url, headers=header)
+        return self.get(url)
+
+    def getPlaylistImage(self, playlistID) -> str:
+        """Gets the image of the currently playing playlist"""
+        url = f"https://api.spotify.com/v1/playlists/{playlistID}/images"
+        return self.get(url)
